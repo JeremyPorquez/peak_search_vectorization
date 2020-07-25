@@ -167,7 +167,7 @@ if __name__ == "__main__":
     # plt.scatter(unique[0], unique[1], c='red')
     ax1.plot(temperatures, data.values[:,0])
     # plt.scatter(indexes(data.values[0,:]), thres=signal_threshold, min_dist=1, c='red')
-    pplot(temperatures, data.values[:,0], indices[0][indices[1] == 0][-1])
+    pplot(temperatures, data.values[:,0], indices[0][indices[1] == 0])
 
     ax2 = fig.add_subplot(222)
     original_indices = peakutils.indexes(data.values[:,0], thres=signal_threshold, min_dist=1)
@@ -175,11 +175,16 @@ if __name__ == "__main__":
     ax2.plot()
     pplot(temperatures, data.values[:,0], original_indices)
 
+    # todo maybe this --> [indices[0][indices[1] == i] for i, dist in enumerate(distances)]
+    # todo maybe this --> [indices[0][indices[1] == i][-1] for i, dist in enumerate(distances)]
+
     ax3 = fig.add_subplot(212)
     # x,y = np.meshgrid(distances[:5], temperatures)
     ax3.contourf(x, y, data.values)
-    ax3.scatter(x[indices], y[indices],c='red')
-    ax3.set_xlim(0,1)
+    # ax3.scatter(x[indices[0][indices[1] == 0]], y[indices[0][indices[1] == 0]],c='red')
+    t = temperatures[np.array([indices[0][indices[1] == i][-1] for i, dist in enumerate(distances)])]
+    ax3.plot(distances, t)
+    # ax3.set_xlim(0,1)
 
 
 
