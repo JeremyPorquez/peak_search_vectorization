@@ -14,7 +14,7 @@ def rolling_mean(arr, n=1, axis=0):
         return result
 
 
-def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0):
+def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0, last_values_only=False):
     """Peak detection routine.
 
     Finds the numeric index of the peaks in *y* by taking its first order difference. By using
@@ -34,6 +34,10 @@ def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0):
     thres_abs: boolean
         If True, the thres value will be interpreted as an absolute value, instead of
         a normalized threshold.
+    axis : int [0, 1]
+        Gets the peaks along rows (0) or columns (1).
+    last_values_only : boolean
+        If True, returns only one value per row (axis = 0) or column (axis = 1).
 
     Returns
     -------
@@ -66,9 +70,12 @@ def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0):
         # just return the first value as the maximum
         return np.array([0])
 
+
     # if len(zeros[0]):
     #     # compute first order difference of zero indexes
     #     zeros_diff = np.diff(zeros)
+
+
     #     # check when zeros are not chained together
     #     zeros_diff_not_one, = np.add(np.where(zeros_diff != 1), 1)
     #     # make an array of the chained zero indexes
@@ -94,14 +101,11 @@ def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0):
 
     # find the peaks by using the first order difference
 
-    # todo : threshold is not correct
     peaks = np.where(
         (np.vstack([dy, np.zeros((dy.shape[1]))]) < 0.0)
         & (np.vstack([np.zeros((dy.shape[1])), dy]) > 0.0)
         & ((y > thres))
     )
-
-    print('s')
 
     # which row in first column are peaks... (Below)
     # peaks[0][peaks[1] == 0] ==> gives [26  28  65  92 107 116]
@@ -135,14 +139,19 @@ def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0):
     #
     #     peaks = np.arange(y.size)[~rem]
 
-    return peaks
+    if last_values_only:
+        along_x = 1
+        if axis == 1:
+            along_x = 0
+        return [peaks[0][peaks[1] == i][-1] for i in range(y.shape[along_x])]
+    else:
+        return peaks
 
 
 if __name__ == "__main__":
     from peakutils.plot import plot as pplot
     import pandas as pd
     import matplotlib.pyplot as plt
-    import FindPeaks
 
     data = pd.read_csv("sample_data.csv", index_col=0)
     data.columns = data.columns.astype(np.float)
@@ -177,7 +186,7 @@ if __name__ == "__main__":
 
     ax2 = fig.add_subplot(222)
     ax2.set_title('Last Values only')
-    indices = FindPeaks.indexes(values, thres=signal_threshold, min_dist=1, axis=0, last_values_only=True)
+    indices = indexes(values, thres=signal_threshold, min_dist=1, axis=0, last_values_only=True)
     ax2.plot()
     pplot(y_values, values[:, 0], [indices[0]])
 
@@ -185,8 +194,7 @@ if __name__ == "__main__":
     ax3 = fig.add_subplot(212)
     ax3.set_title('Peak search for 3d data')
     ax3.contourf(x, y, values)
-    t = y_values[FindPeaks.indexes(values, thres=signal_threshold, min_dist=1, axis=0, last_values_only=True)]
+    t = y_values[indexes(values, thres=signal_threshold, min_dist=1, axis=0, last_values_only=True)]
     ax3.plot(x_values, t, c='#ff000080')
 
     plt.show()
-    print(1)
