@@ -70,74 +70,73 @@ def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0, last_values_only=
         # just return the first value as the maximum
         return np.array([0])
 
-
-    # if len(zeros[0]):
-    #     # compute first order difference of zero indexes
-    #     zeros_diff = np.diff(zeros)
-
-
-    #     # check when zeros are not chained together
-    #     zeros_diff_not_one, = np.add(np.where(zeros_diff != 1), 1)
-    #     # make an array of the chained zero indexes
-    #     zero_plateaus = np.split(zeros, zeros_diff_not_one)
-    #
-    #     # fix if leftmost value in dy is zero
-    #     if zero_plateaus[0][0] == 0:
-    #         dy[zero_plateaus[0]] = dy[zero_plateaus[0][-1] + 1]
-    #         zero_plateaus.pop(0)
-    #
-    #     # fix if rightmost value of dy is zero
-    #     if len(zero_plateaus) and zero_plateaus[-1][-1] == len(dy) - 1:
-    #         dy[zero_plateaus[-1]] = dy[zero_plateaus[-1][0] - 1]
-    #         zero_plateaus.pop(-1)
-    #
-    #     # for each chain of zero indexes
-    #     for plateau in zero_plateaus:
-    #         median = np.median(plateau)
-    #         # set leftmost values to leftmost non zero values
-    #         dy[plateau[plateau < median]] = dy[plateau[0] - 1]
-    #         # set rightmost and middle values to rightmost non zero values
-    #         dy[plateau[plateau >= median]] = dy[plateau[-1] + 1]
-
-    # find the peaks by using the first order difference
-
     peaks = np.where(
         (np.vstack([dy, np.zeros((dy.shape[1]))]) < 0.0)
         & (np.vstack([np.zeros((dy.shape[1])), dy]) > 0.0)
         & ((y > thres))
     )
 
-    # which row in first column are peaks... (Below)
-    # peaks[0][peaks[1] == 0] ==> gives [26  28  65  92 107 116]
-    # first data should have peaks ==> [26  28  65  92 107 116]
-
     # peaks[0] gives row location
     # peaks[1] gives column location
 
     # handle multiple peaks, respecting the minimum distance
-    # if peaks.size > 1 and min_dist > 1:
-    #     # y[peaks] gives intensity
-    #     # argsort y[peaks] gives the indices to sort y[peaks]
-    #     #   *gives row index
-    #     # peaks[1]
-    #     #   *gives column index
-    #     # peaks[argsort(y[peaks])] sorts peak position
-    #
-    #     # peaks[0][np.argsort(y[peaks])]
-    #     # [ 6 95 93 57 55  9 87 64 79 81 77 52 68 83 61 71 13 74 50 48 16 43 21 36, 38 33 25 27 30]
-    #
-    #     highest_by_arguments = np.argsort(y[peaks], axis=axis)[::-1]
-    #     highest = peaks[np.argsort(y[peaks])][::-1]
-    #     rem = np.ones(y.shape, dtype=bool)
-    #     rem[peaks] = False
-    #
-    #     for peak in highest:
-    #         if not rem[peak]:
-    #             sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
-    #             rem[sl] = True
-    #             rem[peak] = False
-    #
-    #     peaks = np.arange(y.size)[~rem]
+    if peaks[0].size > 1 and min_dist > 1:
+        # peaks[0].size > 1 --> more than one peak
+        #     # y[peaks] gives intensity
+        #     # argsort y[peaks] gives the indices to sort y[peaks]
+        #     #   *gives row index
+        #     # peaks[1]
+        #     #   *gives column index
+        #     # peaks[argsort(y[peaks])] sorts peak position
+        #
+        #     # peaks[0][np.argsort(y[peaks])]
+        #     # [ 6 95 93 57 55  9 87 64 79 81 77 52 68 83 61 71 13 74 50 48 16 43 21 36, 38 33 25 27 30]
+        #
+        # twod_peaks = [[peaks[0][peaks[1] == i]] for i in range(y.shape[1])]
+        # highest_to_lowest_peak_indices = [np.argsort(y[:,i][peaks[0][peaks[1] == i]])[::-1] for i in range(y.shape[1])]
+        highest_to_lowest = [peaks[0][peaks[1] == i][np.argsort(y[:, i][peaks[0][peaks[1] == i]])[::-1]] for i in
+                             range(y.shape[1])]
+
+        # method 1
+        args_sorted_from_highest_to_lowest = []
+
+        # # method 2
+        # highest = [[], []]
+        for i in range(y.shape[1]):
+            sub_peaks = peaks[0][peaks[1] == i]
+            # method 1
+            args_sorted_from_highest_to_lowest.append(sub_peaks[np.argsort(y[:, i][sub_peaks])][::-1])
+
+            # # method 2
+            # highest[1].extend([i]*len(sub_peaks))
+            # highest[0].extend(sub_peaks[np.argsort(y[:, i][sub_peaks])[::-1]])
+            # # generates a list similar to np.where where [0] is row location, and [1] is column location
+
+        rem = np.ones(y.shape, dtype=bool)
+        rem[peaks] = False
+        #
+
+        # for peak in highest:
+        #     if not rem[peak]:
+        #         sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
+        #         rem[sl] = True
+        #         rem[peak] = False
+
+        for i, sub_highest_to_lowest in enumerate(args_sorted_from_highest_to_lowest):
+            for peak in sub_highest_to_lowest:
+                if not rem[:, i][peak]:
+                    sl = slice(max(0, peak - min_dist), peak + min_dist + 1)
+                    rem[sl,i] = True
+                    rem[peak,i] = False
+
+
+
+        # todo 1d works
+        p = np.arange(y.shape[0])[~rem[:, 0]]
+
+        # todo : convert to 2d
+        peaks = np.mgrid[0:y.shape[0],0:y.shape[1]].reshape(2,-1)[~rem]
+        # peaks = np.arange(y.shape)[~rem]
 
     if last_values_only:
         along_x = 1
@@ -150,6 +149,7 @@ def indexes(y, thres=0.3, min_dist=1, thres_abs=False, axis=0, last_values_only=
 
 if __name__ == "__main__":
     from peakutils.plot import plot as pplot
+    import peakutils
     import pandas as pd
     import matplotlib.pyplot as plt
 
@@ -172,11 +172,14 @@ if __name__ == "__main__":
     values = rolling_mean(values, n, 1)
     x_values = rolling_mean(x_values[None, :], n, 1)[0]
 
+    # minimum distance for each peak
+    min_dist = 6
+
     # meshgrid x and y coordinates
     x, y = np.meshgrid(x_values, y_values)
 
     # Find peak indices (vectorized)
-    indices = indexes(values, thres=signal_threshold, min_dist=1, axis=0)
+    indices = indexes(values, thres=signal_threshold, min_dist=min_dist, axis=0)
 
     fig = plt.figure()
     ax1 = fig.add_subplot(221)
@@ -186,15 +189,14 @@ if __name__ == "__main__":
 
     ax2 = fig.add_subplot(222)
     ax2.set_title('Last Values only')
-    indices = indexes(values, thres=signal_threshold, min_dist=1, axis=0, last_values_only=True)
+    indices = indexes(values, thres=signal_threshold, min_dist=min_dist, axis=0, last_values_only=True)
     ax2.plot()
     pplot(y_values, values[:, 0], [indices[0]])
-
 
     ax3 = fig.add_subplot(212)
     ax3.set_title('Peak search for 3d data')
     ax3.contourf(x, y, values)
-    t = y_values[indexes(values, thres=signal_threshold, min_dist=1, axis=0, last_values_only=True)]
+    t = y_values[indexes(values, thres=signal_threshold, min_dist=min_dist, axis=0, last_values_only=True)]
     ax3.plot(x_values, t, c='#ff000080')
 
     plt.show()
